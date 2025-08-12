@@ -1,0 +1,450 @@
+---
+title: "Stat 490 HW2"
+author: "Janine Yanes"
+output: html_document
+---
+<style>
+.indented {padding-left: 20px;}
+</style>
+
+```{r, warning=FALSE, message=FALSE}
+#Load packages
+library(knitr)
+library(kableExtra)
+library(tidyverse)
+```
+
+## Problem 1
+
+```{r, results='asis'}
+table_1 = data.frame(
+  Unit = c(1:10), 
+  Treatment.0 = c(10.04, 9.63, 7.26, 8.80, 10.59, 10.78, 7.58, 9.27, 6.75, 9.49),
+  Treatment.1 = c(14.20, 13.51, 11.52, 13.97, 13.48, 12.18, 10.09, 11.61, 13.85, 12.97)
+)
+table_2 = data.frame(
+  Unit = c(1:10), 
+  Treatment.0 = c(2.77, 2.26, 0.69, 1.49, 3.65, 4.01, 0.81, 1.89, 0.53, 2.10),
+  Treatment.1 = c(4.77, 4.26, 2.69, 3.49, 5.65, 6.01, 2.81, 3.89, 2.53, 4.10)
+)
+table_3 = data.frame(
+  Unit = c(1:10), 
+  Treatment.0 = c(2.77, 2.26, 0.69, 1.49, 3.65, 4.01, 0.81, 1.89, 0.53, 2.10),
+  Treatment.1 = c(8.18, 5.79, 2.14, 7.30, 5.71, 2.97, 1.05, 2.24, 6.86, 4.41)
+)
+
+cat(c('<table style="width:100%"><tr valign="top"><td>', 
+  table_1 %>%
+    kable("html", align = 'clc', caption = 'Table 1') %>%
+      column_spec(1, bold = T, border_right = T) %>%
+      kable_styling(full_width = F),
+  '</td><td>',
+  table_2 %>%
+    kable("html", align = 'clc', caption = 'Table 2') %>%
+      column_spec(1, bold = T, border_right = T) %>%
+      kable_styling(full_width = F) ,
+  '</td><td>', 
+  table_3 %>%
+    kable("html", align = 'clc', caption = 'Table 3') %>%
+      column_spec(1, bold = T, border_right = T) %>%
+      kable_styling(full_width = F), '</td><tr></table>'),
+  sep = '')
+```
+
+### a)
+### i. {.indented}
+###
+```{r, results='asis'}
+#Table 1
+t1_tr0_avg = mean(table_1$Treatment.0)
+t1_tr1_avg = mean(table_1$Treatment.1)
+t1_tr0_med = median(table_1$Treatment.0)
+t1_tr1_med = median(table_1$Treatment.1)
+t1_tr0_var = var(table_1$Treatment.0)
+t1_tr1_var = var(table_1$Treatment.1)
+t1_tr0_ran = max(table_1$Treatment.0) - min(table_1$Treatment.0)
+t1_tr1_ran = max(table_1$Treatment.1) - min(table_1$Treatment.1)
+
+#Table 2
+t2_tr0_avg = mean(table_2$Treatment.0)
+t2_tr1_avg = mean(table_2$Treatment.1)
+t2_tr0_med = median(table_2$Treatment.0)
+t2_tr1_med = median(table_2$Treatment.1)
+t2_tr0_var = var(table_2$Treatment.0)
+t2_tr1_var = var(table_2$Treatment.1)
+t2_tr0_ran = max(table_2$Treatment.0) - min(table_2$Treatment.0)
+t2_tr1_ran = max(table_2$Treatment.1) - min(table_2$Treatment.1)
+
+#Table 3
+t3_tr0_avg = mean(table_3$Treatment.0)
+t3_tr1_avg = mean(table_3$Treatment.1)
+t3_tr0_med = median(table_3$Treatment.0)
+t3_tr1_med = median(table_3$Treatment.1)
+t3_tr0_var = var(table_3$Treatment.0)
+t3_tr1_var = var(table_3$Treatment.1)
+t3_tr0_ran = max(table_3$Treatment.0) - min(table_3$Treatment.0)
+t3_tr1_ran = max(table_3$Treatment.1) - min(table_3$Treatment.1)
+
+table_1i = data.frame(
+  Unit = c("Avg", "Med", "Var", "Ran"), 
+  Treatment.0 = c(t1_tr0_avg, t1_tr0_med, t1_tr0_var, t1_tr0_ran),
+  Treatment.1 = c(t1_tr1_avg, t1_tr1_med, t1_tr1_var, t1_tr1_ran)
+)
+table_2i = data.frame(
+  Unit = c("Avg", "Med", "Var", "Ran"), 
+  Treatment.0 = c(t2_tr0_avg, t2_tr0_med, t2_tr0_var, t2_tr0_ran),
+  Treatment.1 = c(t2_tr1_avg, t2_tr1_med, t2_tr1_var, t2_tr1_ran)
+)
+table_3i = data.frame(
+  Unit = c("Avg", "Med", "Var", "Ran"), 
+  Treatment.0 = c(t3_tr0_avg, t3_tr0_med, t3_tr0_var, t3_tr0_ran),
+  Treatment.1 = c(t3_tr1_avg, t3_tr1_med, t3_tr1_var, t3_tr1_ran)
+)
+
+cat(c('<table style="width:100%"><tr valign="top"><td>', 
+  table_1i %>%
+    kable("html", align = 'clc', caption = 'Table 1 summaries') %>%
+      column_spec(1, bold = T, border_right = T) %>%
+      kable_styling(full_width = F),
+  '</td><td>',
+  table_2i %>%
+    kable("html", align = 'clc', caption = 'Table 2 summaries') %>%
+      column_spec(1, bold = T, border_right = T) %>%
+      kable_styling(full_width = F) ,
+  '</td><td>', 
+  table_3i %>%
+    kable("html", align = 'clc', caption = 'Table 3 summaries') %>%
+      column_spec(1, bold = T, border_right = T) %>%
+      kable_styling(full_width = F), '</td><tr></table>'),
+  sep = '')
+```
+
+### ii. {.indented}
+###
+```{r, results='asis'}
+t1_tau = table_1$Treatment.1 - table_1$Treatment.0
+t2_tau = table_2$Treatment.1 - table_2$Treatment.0
+t3_tau = table_3$Treatment.1 - table_3$Treatment.0
+
+table_1ii = data.frame(
+  Unit = c(1:10), 
+  τ = t1_tau
+)
+table_2ii = data.frame(
+  Unit = c(1:10), 
+  τ = t2_tau
+)
+table_3ii = data.frame(
+  Unit = c(1:10), 
+  τ = t3_tau
+)
+
+cat(c('<table style="width:50%"><tr valign="top"><td>', 
+  table_1ii %>%
+    kable("html", align = 'clc', caption = 'Table 1 tau') %>%
+      column_spec(1, bold = T, border_right = T) %>%
+      kable_styling(full_width = F),
+  '</td><td>',
+  table_2ii %>%
+    kable("html", align = 'clc', caption = 'Table 2 tau') %>%
+      column_spec(1, bold = T, border_right = T) %>%
+      kable_styling(full_width = F) ,
+  '</td><td>', 
+  table_3ii %>%
+    kable("html", align = 'clc', caption = 'Table 3 tau') %>%
+      column_spec(1, bold = T, border_right = T) %>%
+      kable_styling(full_width = F), '</td><tr></table>'),
+  sep = '')
+```
+
+### iii. {.indented}
+###
+```{r}
+t1_tau_bar = mean(t1_tau)
+t2_tau_bar = mean(t2_tau)
+t3_tau_bar = mean(t3_tau)
+
+cat("The average treatment effect for Table 1 is ", t1_tau_bar, ". \nThe average treatment effect for Table 2 is ", t2_tau_bar, ". \nThe average treatment effect for Table 3 is ", t3_tau_bar, ".", sep = '')
+```
+
+### iiii. {.indented}
+###
+```{r}
+t1_tau_med = median(t1_tau)
+t2_tau_med = median(t2_tau)
+t3_tau_med = median(t3_tau)
+
+t1_med_diff = t1_tr1_med - t1_tr0_med
+t2_med_diff = t2_tr1_med - t2_tr0_med
+t3_med_diff = t3_tr1_med - t3_tr0_med
+
+cat("For Table 1, the median of unit-level causal effects is ", t1_tau_med, " and the difference of the medians of the potential outcomes under treatments 0 and 1 is ", t1_med_diff, ".\nFor Table 2, the median of unit-level causal effects is ", t2_tau_med, " and the difference of the medians of the potential outcomes under treatments 0 and 1 is ", t2_med_diff, ".\nFor Table 3, the median of unit-level causal effects is ", t3_tau_med, " and the difference of the medians of the potential outcomes under treatments 0 and 1 is ", t3_med_diff, ".", sep = '')
+```
+While $\tau_i$ looks at both potential outcomes for each unit $i = 1, 2, \dots, 10$, $Med[Y_i(1)]$ and $Med[Y_i(0)]$ can be from different units. This is why $Med(\tau_i) \ne Med[Y_i(1)] - Med[Y_i(0)]$ for Table 1 and Table 3. Furthermore, even if $Med[Y_i(1)]$ and $Med[Y_i(0)]$ came from the same unit, that unit doesn't necessarily have the median unit-level causal effect.   
+As a result, the only case where $Med(\tau_i)$ and $Med[Y_i(1)] - Med[Y_i(0)]$ for units $i = 1, 2, \dots, 10$ are equal is with Table 2. This is because this is the only table where $Med[Y_i(1)]$ and $Med[Y_i(0)]$ are from the same unit(s), halfway between Unit 8 and Unit 10, and the difference between them is equal to the median unit-level causal effect (since, as shown in part ii., each unit $i$ has the same $\tau_i$).  
+\  
+
+### b)
+As seen in parts a)i. & a)ii. with Table 2, $Var[Y_i(0)] = Var[Y_i(1)]$ and $\tau_i = 2$ for each unit $i$, such that $Y_i(1) = Y_i(0) + 2$ for each unit. Therefore, additivity holds in Table 2.  
+\
+
+### c)
+```{r, results='asis'}
+set.seed(123)
+
+bernoulli_assignment <- function(y) {
+  N = nrow(y)
+  W = sample(c(0,1), N, replace = TRUE)
+  cat('W =', W)
+  y_copy = data.frame(y)
+  for (i in 1:N) {
+    if (W[i]==0) y_copy[i,3] = NA
+    else y_copy[i,2] = NA
+  }
+return(y_copy)
+}
+
+table_1c = bernoulli_assignment(table_1)
+
+cat(c('<table style="width:70%"><tr valign="top"><td>', 
+  table_1 %>%
+    kable("html", align = 'clc', caption = 'Table 1') %>%
+      column_spec(1, bold = T, border_right = T) %>%
+      kable_styling(full_width = F),
+  '</td><td>',
+  table_1c %>%
+    kable("html", align = 'clc', caption = 'Table 1 (Bernoulli assignment)') %>%
+      column_spec(1, bold = T, border_right = T) %>%
+      kable_styling(full_width = F), '</td><tr></table>'),
+sep = '')
+```
+
+### d)
+```{r, results='asis'}
+set.seed(123)
+
+randomized_assignment <- function(y, n0) {
+  n_choose_n0 = sample(c(1:nrow(y)), n0)
+  N = nrow(y)
+  W = rep(1, N)
+  for (i in 1:n0) W[n_choose_n0[i]] = 0
+  cat('W =', W)
+  y_copy = data.frame(y)
+  for (i in 1:N) {
+    if (W[i]==0) y_copy[i,3] = NA
+    else y_copy[i,2] = NA
+  }
+return(y_copy)
+}
+
+table_1d = randomized_assignment(table_1, 5)
+
+cat(c('<table style="width:70%"><tr valign="top"><td>', 
+  table_1 %>%
+    kable("html", align = 'clc', caption = 'Table 1') %>%
+      column_spec(1, bold = T, border_right = T) %>%
+      kable_styling(full_width = F),
+  '</td><td>',
+  table_1d %>%
+    kable("html", align = 'clc', caption = 'Table 1 (completely randomized)') %>%
+      column_spec(1, bold = T, border_right = T) %>%
+      kable_styling(full_width = F), '</td><tr></table>'),
+sep = '')
+```
+
+
+## Problem 2
+```{r, results='asis'}
+W = c(1, 1, 0, 0, 1, 1, 1, 0, 1, 0)
+table_3_p2 = data.frame(table_3)
+
+for (i in 1:nrow(table_3_p2)) {
+  if (W[i]==0) table_3_p2[i,3] = NA
+  else table_3_p2[i,2] = NA
+}
+
+cat(c('<table style="width:70%"><tr valign="top"><td>', 
+  table_3 %>%
+    kable("html", align = 'clc', caption = 'Table 3') %>%
+      column_spec(1, bold = T, border_right = T) %>%
+      kable_styling(full_width = F),
+  '</td><td>',
+  table_3_p2 %>%
+    kable("html", align = 'clc', caption = 'Table 3 (Problem 2)') %>%
+      column_spec(1, bold = T, border_right = T) %>%
+      kable_styling(full_width = F), '</td><tr></table>'),
+sep = '')
+
+y_bar_1 = mean(table_3_p2$Treatment.1, na.rm=TRUE)
+y_bar_0 = mean(table_3_p2$Treatment.0, na.rm=TRUE)
+tau_bar_hat = y_bar_1 - y_bar_0
+cat("The estimated average causal effect = ", y_bar_1, " - ", y_bar_0, " = ", tau_bar_hat, ".", sep='')
+
+#Var(tau-bar-hat) = S_0^2/N_0 + S_1^2/N_1 - S_(diff)^2/N
+var_tau_bar_hat = (t3_tr0_var/4) + (t3_tr1_var/6) - ((var(t3_tau))/10)
+cat("The true sampling variance of the estimated causal effect = ", var_tau_bar_hat, ".", sep='')
+
+#Estimated Var(tau-bar-hat) = s_0^2/N_0 + s_1^2/N_1
+t3_s0_squared = var(table_3_p2$Treatment.0, na.rm = TRUE)
+t3_s1_squared = var(table_3_p2$Treatment.1, na.rm = TRUE)
+var_hat_tau_bar_hat = (t3_s0_squared/4) + (t3_s1_squared/6)
+cat("The estimated sampling variance of the estimated causal effect = ", var_hat_tau_bar_hat, ".", sep='')
+```
+
+
+## Problem 3
+```{r, results='asis'}
+table_4 = data.frame(
+  Treatment = c(rep("Calcium", 10), rep("Placebo", 11)), 
+  BP.before = c(107,110,123,129,112,111,107,112,136,102,123,109,112,102,98,114,119,112,110,117,130),
+  BP.after = c(100,114,105,112,115,116,106,102,125,104,124,97,113,105,95,119,114,114,121,118,133),
+  Observed.reduction = c(-7,4,-18,-17,3,5,-1,-10,-11,2,1,-12,1,3,-3,5,-5,2,11,1,3)
+)
+
+table_4 %>%
+    kable("html", align = 'clc', caption = 'Table 4') %>%
+      column_spec(1, bold = T, border_right = T) %>%
+      row_spec(0, extra_css = "border-bottom: 1px solid;") %>% 
+      row_spec(10, extra_css = "border-bottom: 1px solid;") %>% 
+      kable_styling()
+```
+
+### a)
+I care about the difference in average BP reduction between the treatment and the control group more. This is because unlike with average post-treatment BP, we do not have to consider differences in starting (pre-treatment) BP between units.  
+For example: let's consider a scenario where the treatment is more effective than the control and $Y_i(1) = Y_i(0) + c$ for every unit $i$. However, in our observed outcomes, the units in the treatment group started with higher blood pressures than those in the control group, such that both groups ended with the same average post-treatment BP.  
+If we could only see observed average post-treatment BP, the treatment would seem as effective as the control, since $\bar y(1) = \bar y(0)$. In contrast, looking at the observed difference in average BP reduction between groups would still show that the treatment led to a greater decrease in BP on average, and so was more effective.
+
+### b)
+Two unbiased estimators for $\bar\tau = \bar Y(1) - \bar Y(0)$, where $Y$ is post-treatment BP:  
+1. The difference in average post-treatment BP between the treatment and control group for the observed outcomes, $\hat{\bar\tau} = \bar y(1) - \bar y(0)$. This is unbiased since $E[\bar y(1) - \bar y(0)] = E[\bar y(1)] - E[\bar y(0)] = \bar Y(1) - \bar Y(0)$.  
+2. Randomly pair each unit from the treatment group with a unit from the control group (with replacement if there are more units in the one group than the other). The unbiased estimator would be the average difference in post-treatment BP between pairs, $\hat{\bar\tau} =$ mean$(y_j(1) - y_j(0))$ for pair $k = 1, 2, \dots, N_0$ (or $N_1$ if there are more units in $N_1$). This is unbiased since  
+$E[$mean$(y_j(1) - y_j(0))] = E[E(y_j(1) - y_j(0))] = E[\bar y(1) - \bar y(0)] = E[\bar y(1)] - E[\bar y(0)] = \bar Y(1) - \bar Y(0)$.  
+  
+The first estimator is more efficient since it only concerns the mean post-treatment BP for each group, rather than each individual unit.
+
+### c)
+$H_0: Y_i(1) = Y_i(0), i = 1, 2, \dots, N$  
+$H_A: Y_i(1) - Y_i(0) < 0, i = 1, 2, \dots, N$  
+Test statistic: $T = \frac{\hat{\bar\tau}}{\sqrt{s_0^2/N_0 + s_1^2/N_1}}$. This uses our point estimator for the estimand of interest, $\bar\tau$, while also taking our point estimator's variability into account.
+```{r, results='asis'}
+set.seed(123)
+
+#Using code from class
+Nbytwo <- function(y,w) {
+  N = length(y)
+  Ypot = matrix(numeric(N*2), ncol=2)
+  for (i in 1:N) {
+    if (w[i]==1) {
+      Ypot[i,1] = NA
+      Ypot[i,2] = y[i]
+    } 
+    else {
+      Ypot[i,1] = y[i]
+      Ypot[i,2] = NA
+    }
+  }
+  return(Ypot)        
+}
+
+TUNEQUALCOMPUTE = function(y,w, taustar=0) {
+  # Computes t statistic with unequal variances
+  N = length(y)
+  N1 = sum(w)
+  N0 = N - N1
+  tauhat = mean(y[w==1]) - mean(y[w==0])
+  s0sq = var(y[w==0])
+  s1sq = var(y[w==1])
+  Tobs = (tauhat - taustar) / sqrt(s0sq/N0+s1sq/N1)
+  return(Tobs)
+}
+
+imputeundersharpnull = function(Y,taustar=0){
+  N = dim(Y)[1]
+  for (i in 1:N) {
+    if (is.na(Y[i,1])) Y[i,1] = Y[i,2]-taustar
+    else Y[i,2] = Y[i,1]+taustar           
+  }
+  return(Y)
+}
+
+FISHER_TEST = function(y,w, taustar, ITER, show_hist=TRUE) {
+  # Tests sharp null H0:tau_i=taustar against tau_i>taustar
+  N = length(y) # Number of units
+  Ypot = Nbytwo(y,w)
+  Tobs = TUNEQUALCOMPUTE(y,w, taustar) # Calculate observed value of statistic
+  Yimp = imputeundersharpnull(Ypot, taustar) # Create imputed matrix of potential outcomes
+  Tarray = NULL
+  for (i in 1:ITER) {
+    wnew = sample(w) # this command randomly permutes the sequence x
+    ynew = numeric(N)
+    for (i in 1:N) ynew[i]=Yimp[i,wnew[i]+1]
+    Tnew =TUNEQUALCOMPUTE(ynew,wnew, taustar)
+    Tarray = c(Tarray, Tnew)
+  } 
+  if (show_hist==TRUE) {
+    hist(Tarray, main=NULL, xlab=NULL)
+    abline(v=Tobs, lty=2, lwd=3.0)
+  }
+  # Calculate p-value for greater than alternative
+  pval_plus = sum(Tarray >= Tobs)/ITER 
+  # Calculate p-value for smaller than alternative
+  pval_minus = sum(Tarray <= Tobs)/ITER
+  # Calculate p-value for two-sided alternative
+  pval_twosided = sum(abs(Tarray) >= abs(Tobs))/ITER
+  return(c(pval_plus, pval_minus, pval_twosided))
+}
+
+w_p3 = c(rep(1, 10), rep(0, 11))
+FISHER_TEST(table_4$BP.after, w_p3, 0, 10000)
+```
+  
+Given our large p-value, we fail to reject the null hypothesis.  
+The smallest possible p-value would 1/10000, or 0.0001.
+
+### d)
+```{r}
+INTERVALFISHER = function(y,w,ITER,theta_min, theta_max, m, alpha) {
+  int = (theta_max - theta_min)/(m-1)
+  taustarvec = seq(theta_min,theta_max,int)
+  pvalarray_g = numeric(m)
+  pvalarray_s = numeric(m)
+  for (i in 1:m) {
+    pvalarray_g[i] = FISHER_TEST(y, w, taustarvec[i],ITER, FALSE)[1]
+    pvalarray_s[i] = FISHER_TEST(y, w, taustarvec[i],ITER, FALSE)[2]
+  }
+  # Calculating lower limit
+  if (sum(pvalarray_g == alpha/2) == 1) tau_l = taustarvec[pvalarray_g==alpha/2]
+  else {
+    plbelow=max(pvalarray_g[pvalarray_g<alpha/2])
+    plabove=min(pvalarray_g[pvalarray_g>alpha/2])
+    tau_l_below = taustarvec[pvalarray_g==plbelow]
+    tau_l_above = taustarvec[pvalarray_g==plabove]
+    tau_l = tau_l_below + (tau_l_above - tau_l_below)* (alpha/2 - plbelow)/(plabove-plbelow)
+  }
+  # Calculating upper limit
+  if (sum(pvalarray_s == alpha/2) == 1) tau_u = taustarvec[pvalarray_s==alpha/2]
+  else {
+    pubelow=max(pvalarray_s[pvalarray_s<alpha/2])
+    puabove=min(pvalarray_s[pvalarray_s>alpha/2])
+    tau_u_below = taustarvec[pvalarray_s==pubelow]
+    tau_u_above = taustarvec[pvalarray_s==puabove]
+    tau_u = tau_u_below + (tau_u_above - tau_u_below)* (alpha/2 - pubelow)/(puabove-pubelow)
+  }
+  pminus=stepfun(taustarvec[-1],pvalarray_s)
+  pplus =stepfun(taustarvec[-1],pvalarray_g)
+  par(mfrow=c(1,2))
+  plot(pplus, main="Lower limit", xlab=expression(tau), ylab="p-value")
+  abline(v=tau_l, lty=2)
+  abline(h=alpha/2, lty=2)
+  plot(pminus, main="Upper limit", xlab=expression(tau), ylab="p-value")
+  abline(v=tau_u, lty=2)
+  abline(h=alpha/2, lty=2)
+  return(c(tau_l, tau_u))
+}
+
+i_conf_int = INTERVALFISHER(table_4$BP.after, w_p3, 5000, -15, 15, 31, .05)
+cat("The confidence interval for estimand (i) is (", i_conf_int[1], ",", i_conf_int[2], ").", sep='')
+ii_conf_int = INTERVALFISHER(table_4$Observed.reduction, w_p3, 5000, -15, 15, 31, .05)
+cat("The confidence interval for estimand (ii) is (", ii_conf_int[1], ",", ii_conf_int[2], ").", sep='')
+```
+
