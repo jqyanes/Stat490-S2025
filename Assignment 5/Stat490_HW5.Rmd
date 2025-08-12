@@ -1,0 +1,403 @@
+---
+title: "Stat490_HW5"
+author: "Janine Yanes"
+output: html_document
+---
+
+```{=html}
+<style>
+.indented {padding-left: 20px;}
+</style>
+```
+
+```{r, warning=FALSE, message=FALSE}
+knitr::opts_chunk$set(results = 'asis')
+#Load packages
+library(knitr)
+library(kableExtra)
+library(tidyverse)
+library(combinat)
+library(AlgDesign)
+library(tgp)
+```
+
+```{r}
+data = read.csv("star_data.csv")
+# data for GPA year 2
+var_name = c("GPA_year2","control","age","dad_edn","mom_edn", "sfsp","ssp","sfp", "female")
+data2 = data[,var_name]
+ind2 = which(is.na(data2$GPA_year2)==0)
+data2 = data2[ind2,]
+```
+
+## Part (i)
+```{r}
+y2=data2$GPA_year2
+
+# Getting w vector
+N=length(y2)
+w=numeric(N)
+w[data2$control==1]=1 # ssp=0, sfp=0
+w[data2$sfp==1]=2 # ssp=0, sfp=1
+w[data2$ssp==1]=3 # ssp=1, sfp=0
+w[data2$sfsp==1]=4 # ssp=1, sfp=1
+
+# Display of data
+boxplot(y2 ~ w, xlab="Treatment combination", ylab=expression(Y[2]))
+```
+
+## Part (ii)
+```{r, results='markup'}
+# ANOVA using lm()
+n1=sum(w==1)
+n2=sum(w==2)
+n3=sum(w==3)
+n4=sum(w==4)
+anova(lm(y2 ~ factor(w)))
+```
+
+|                | Df    | Sum Sq  | Mean Sq | F value |
+|:--------------:|:-----:|:-------:|:-------:|:-------:|
+| **Treatments** |  3    | 0.9     | 0.29865 | 0.3614  |
+| **Residuals**  | 1364  | 1127.1  | 0.82631 |         |
+|   **Total**    | 1367  | 1128.0  | 1.12496 |         |
+
+## Part (iii)
+```{r}
+StardataY2Ch6 = data.frame("w"=w,"y2"=y2)
+N_j = StardataY2Ch6 %>% count(w) %>% .$n %>% as.integer()
+
+D = gen.factorial(2,2) ## ME contrast columns in reverse order
+D[, c(1:2)] = D[,c(2:1)] ## Reverse the order of the columns
+colnames(D) = c("F1","F2")
+L = model.matrix(~ F1 + F2 + F1*F2,D)
+ITER=10000
+Fobs=0.3614
+Farray=NULL
+
+set.seed(100)
+for (count in 1:ITER) {
+wnew = sample(c(rep(1,N_j[1]),rep(2,N_j[2]),
+              rep(3,N_j[3]),rep(4,N_j[4])))
+
+Fnew=anova(lm(y2 ~ factor(wnew)))$F[1]
+Farray = c(Farray, Fnew)
+}
+hist(Farray, main=NULL, freq=FALSE, xlab="F")
+abline(v=Fobs, lty=3, lwd=2)
+pvalF = sum(Farray >= Fobs)/ITER
+text(4,0.2,paste("p-value= ",round(pvalF,2)))
+```
+  
+Given the high p-value, we conclude that none of the treatments are effective.
+
+## Part (iv)
+```{r, results='markup'}
+twosqimpute = function(y,w,tau1=0,tau2=0,tau3=0){
+  N = length(y)
+  Data = tibble(y=y,w=w)
+  N_j = Data %>% count(w) %>% .$n
+  beta = c(tau1/2, tau2/2, tau3/2)
+  genPOT = matrix(c(rep(0,N*4)), ncol=4)
+  # L matrix
+  D = gen.factorial(2,2) ## ME contrast columns in reverse order
+  D[, c(1:2)] = D[,c(2:1)] ## Reverse the order of the columns
+  colnames(D) = c("F1","F2")
+  L = model.matrix(~ F1 + F2 + F1*F2,D)
+  L_indexed = matrix(cbind(c(1:4),L), ncol=5)
+  for (i in 1:N) {
+    genPOT[i,w[i]] = y[i]
+    Lobs = L_indexed[w[i],-c(1:2)] # 1x3 row vector
+    tau0 = y[i] - t(Lobs) %*% beta # estimate average of the unit
+    Lmis = L_indexed[-w[i],]
+    trmis = L_indexed[-w[i],1]
+    Ymis = Lmis[,-1] %*% c(tau0, beta) # impute missing outcomes
+    for (j in 1:3) {
+      genPOT[i,trmis[j]] = Ymis[j]
+    } 
+  } 
+  return(genPOT)
+}
+
+#Using Tscaled as the test statistic
+Fishertesttwosquare = function(y,w,tau1,tau2,tau3,ITER) {
+  N = length(y)
+  Data = tibble(y=y,w=w)
+  N_j = Data %>% count(w) %>% .$n
+  ybarvector = Data %>% group_by(w) %>%
+  summarize(ybar=mean(y)) %>% .$ybar
+  n1=sum(w==1)
+  n2=sum(w==2)
+  n3=sum(w==3)
+  n4=sum(w==4)
+  meanvec = c(mean(y[w==1]),mean(y[w==2]),mean(y[w==3]),mean(y[w==4]))
+  varvec = c(var(y[w==1]),var(y[w==2]),var(y[w==3]),var(y[w==4]))
+  MSRes = ((n1-1)*varvec[1]+(n2-1)*varvec[2]+(n3-1)*varvec[3]+(n4-1)*varvec[4])/(N-4)
+  VNey=MSRes*(1/n1 + 1/n2 + 1/n3 + 1/n4)/4
+  SE = sqrt(VNey)
+  # L matrix
+  D = gen.factorial(2,2) ## ME contrast columns in reverse order
+  D[, c(1:2)] = D[,c(2:1)] ## Reverse the order of the columns
+  colnames(D) = c("F1","F2")
+  L = model.matrix(~ F1 + F2 + F1*F2,D)
+  Yimp = twosqimpute(y,w,tau1, tau2, tau3) # Imputed matrix
+  taubarhatadj = (t(L) %*% ybarvector)/4
+  taubarhat = 2*taubarhatadj[2:4] # adjust factorial effects by 2
+  Tscaled=abs(taubarhat/SE)
+  Tscaled1obs= Tscaled[1]
+  Tscaled2obs= Tscaled[2]
+  Tscaled3obs= Tscaled[3]
+  Tscaled1array=Tscaled2array = Tscaled3array = NULL
+  # for any one factorial effect
+  for (count in 1:ITER) {
+    wnew = sample(c(rep(1,N_j[1]),rep(2,N_j[2]),rep(3,N_j[3]),rep(4,N_j[4])))
+    ynew = numeric(N)
+    for (i in 1:N) {
+      ynew[i]=Yimp[i,wnew[i]]
+    }
+    n1new=sum(wnew==1)
+    n2new=sum(wnew==2)
+    n3new=sum(wnew==3)
+    n4new=sum(wnew==4)
+    meanvecnew = c(mean(ynew[wnew==1]),mean(ynew[wnew==2]),mean(ynew[wnew==3]),mean(ynew[wnew==4]))
+    varvecnew = c(var(ynew[wnew==1]),var(ynew[wnew==2]),var(ynew[wnew==3]),var(ynew[wnew==4]))
+    MSResnew = ((n1new-1)*varvecnew[1]+(n2new-1)*varvecnew[2]+(n3new-1)*varvecnew[3]+(n4new-1)*varvecnew[4])/(N-4)
+    VNeynew=MSResnew*(1/n1new + 1/n2new + 1/n3new + 1/n4new)/4
+    SEnew = sqrt(VNeynew)
+    ybarvectornew = NULL
+    for (j in 1:4) {
+      ybarvectornew = c(ybarvectornew,mean(ynew[wnew==j]))
+    }
+    taubarhatadjnew = (t(L) %*% ybarvectornew)/4
+    Tscaled1new = (2*taubarhatadjnew[2])/SEnew
+    Tscaled2new = (2*taubarhatadjnew[3])/SEnew
+    Tscaled3new = (2*taubarhatadjnew[4])/SEnew
+    Tscaled1array = c(Tscaled1array,Tscaled1new)
+    Tscaled2array = c(Tscaled2array,Tscaled2new)
+    Tscaled3array = c(Tscaled3array,Tscaled3new)
+  }
+  #one-sided p-values
+  pval1plus = sum(Tscaled1array >= Tscaled1obs)/ITER
+  pval2plus = sum(Tscaled2array >= Tscaled2obs)/ITER
+  pval3plus = sum(Tscaled3array >= Tscaled3obs)/ITER
+  pval1minus = sum(Tscaled1array <= Tscaled1obs)/ITER
+  pval2minus = sum(Tscaled2array <= Tscaled2obs)/ITER
+  pval3minus = sum(Tscaled3array <= Tscaled3obs)/ITER
+  #two-sided p-values
+  pval1both = sum(abs(Tscaled1array) >= abs(Tscaled1obs))/ITER
+  pval2both = sum(abs(Tscaled2array) >= abs(Tscaled2obs))/ITER
+  pval3both = sum(abs(Tscaled3array) >= abs(Tscaled3obs))/ITER
+  return(list(pvalplus = c(pval1plus, pval2plus, pval3plus),
+  pvalminus = c(pval1minus, pval2minus, pval3minus),
+  pvalboth = c(pval1both, pval2both, pval3both)))
+}
+
+set.seed(100)
+Fishertesttwosquare(y2,w,0,0,0,10000)
+```
+
+Given the high p-values for all three factorial effects (for both the one-sided and two-sided tests), we conclude that none of the effects are significant; the treatments are neither harmful nor helpful.
+
+```{r, results='markup'}
+#Looking at estimated effects
+meanvec = c(mean(y2[w==1]),mean(y2[w==2]),mean(y2[w==3]),mean(y2[w==4]))
+varvec = c(var(y2[w==1]),var(y2[w==2]),var(y2[w==3]),var(y2[w==4]))
+MSRes = ((n1-1)*varvec[1]+(n2-1)*varvec[2]+(n3-1)*varvec[3]+(n4-1)*varvec[4])/(N-4)
+VNey=MSRes*(1/n1 + 1/n2 + 1/n3 + 1/n4)/4
+SE = sqrt(VNey)
+taubarhatadj = (t(L) %*% meanvec)/4
+taubarhat = 2*taubarhatadj[2:4] # adjust factorial effects by 2
+Tscaled=abs(taubarhat/SE)
+pval=2*(1-pnorm(abs(Tscaled)))
+
+cbind(taubarhat, rep(SE,3), Tscaled, pval)
+```
+
+## Part (v)
+```{r, results='markup'}
+F1int = c(taubarhat[1]-qnorm(p=.05/2, lower.tail=FALSE)*SE, taubarhat[1]+qnorm(p=.05/2, lower.tail=FALSE)*SE)
+F1int
+F2int = c(taubarhat[2]-qnorm(p=.05/2, lower.tail=FALSE)*SE, taubarhat[2]+qnorm(p=.05/2, lower.tail=FALSE)*SE)
+F2int
+F3int = c(taubarhat[3]-qnorm(p=.05/2, lower.tail=FALSE)*SE, taubarhat[3]+qnorm(p=.05/2, lower.tail=FALSE)*SE)
+F3int
+```
+## Part (vi)  
+### Female
+```{r}
+data2f = subset(data2, female==1)
+y2f=data2f$GPA_year2
+
+# Getting w vector
+N=length(y2f)
+w=numeric(N)
+w[data2f$control==1]=1 # ssp=0, sfp=0
+w[data2f$sfp==1]=2 # ssp=0, sfp=1
+w[data2f$ssp==1]=3 # ssp=1, sfp=0
+w[data2f$sfsp==1]=4 # ssp=1, sfp=1
+
+# Display of data
+boxplot(y2f ~ w, xlab="Treatment combination", ylab=expression(Y[2]))
+```
+
+```{r, results='markup'}
+# ANOVA using lm()
+n1=sum(w==1)
+n2=sum(w==2)
+n3=sum(w==3)
+n4=sum(w==4)
+anova(lm(y2f ~ factor(w)))
+```
+
+|                | Df    | Sum Sq  | Mean Sq | F value |
+|:--------------:|:-----:|:-------:|:-------:|:-------:|
+| **Treatments** |  3    | 3.67    | 1.22479 | 1.616   |
+| **Residuals**  | 775   | 587.37  | 0.75789 |         |
+|   **Total**    | 778   | 591.04  | 1.98268 |         |
+```{r}
+StardataY2fCh6 = data.frame("w"=w,"y2f"=y2f)
+N_j = StardataY2fCh6 %>% count(w) %>% .$n %>% as.integer()
+
+D = gen.factorial(2,2) ## ME contrast columns in reverse order
+D[, c(1:2)] = D[,c(2:1)] ## Reverse the order of the columns
+colnames(D) = c("F1","F2")
+L = model.matrix(~ F1 + F2 + F1*F2,D)
+ITER=10000
+Fobs=1.616
+Farray=NULL
+
+set.seed(100)
+for (count in 1:ITER) {
+wnew = sample(c(rep(1,N_j[1]),rep(2,N_j[2]),
+              rep(3,N_j[3]),rep(4,N_j[4])))
+
+Fnew=anova(lm(y2f ~ factor(wnew)))$F[1]
+Farray = c(Farray, Fnew)
+}
+hist(Farray, main=NULL, freq=FALSE, xlab="F")
+abline(v=Fobs, lty=3, lwd=2)
+pvalF = sum(Farray >= Fobs)/ITER
+text(4,0.2,paste("p-value= ",round(pvalF,2)))
+```
+
+While the p-value is much lower than the one for both males and females, it is still fairly high (considering that common values for $\alpha$ are 0.1 or 0.05). As a result, we conclude that none of the treatments are effective for females.
+```{r, results='markup'}
+set.seed(100)
+Fishertesttwosquare(y2f,w,0,0,0,10000)
+```
+
+Looking at the one-sided p-values, we see that factor SFP has a p-value of 0.0478 for the test with the alternative hypothesis $H_A:\bar\tau(F_2)>0$. Given this low p-value, we conclude that factor SFP has a positive effect on GPA for females.
+```{r, results='markup'}
+#Looking at estimated effects
+meanvec = c(mean(y2f[w==1]),mean(y2f[w==2]),mean(y2f[w==3]),mean(y2f[w==4]))
+varvec = c(var(y2f[w==1]),var(y2f[w==2]),var(y2f[w==3]),var(y2f[w==4]))
+MSRes = ((n1-1)*varvec[1]+(n2-1)*varvec[2]+(n3-1)*varvec[3]+(n4-1)*varvec[4])/(N-4)
+VNey=MSRes*(1/n1 + 1/n2 + 1/n3 + 1/n4)/4
+SE = sqrt(VNey)
+taubarhatadj = (t(L) %*% meanvec)/4
+taubarhat = 2*taubarhatadj[2:4] # adjust factorial effects by 2
+Tscaled=abs(taubarhat/SE)
+pval=2*(1-pnorm(abs(Tscaled)))
+
+cbind(taubarhat, rep(SE,3), Tscaled, pval)
+```
+
+```{r, results='markup'}
+#Confidence intervals
+F1int = c(taubarhat[1]-qnorm(p=.05/2, lower.tail=FALSE)*SE, taubarhat[1]+qnorm(p=.05/2, lower.tail=FALSE)*SE)
+F1int
+F2int = c(taubarhat[2]-qnorm(p=.05/2, lower.tail=FALSE)*SE, taubarhat[2]+qnorm(p=.05/2, lower.tail=FALSE)*SE)
+F2int
+F3int = c(taubarhat[3]-qnorm(p=.05/2, lower.tail=FALSE)*SE, taubarhat[3]+qnorm(p=.05/2, lower.tail=FALSE)*SE)
+F3int
+```
+
+### Male
+```{r}
+data2m = subset(data2, female==0)
+y2m=data2m$GPA_year2
+
+# Getting w vector
+N=length(y2m)
+w=numeric(N)
+w[data2m$control==1]=1 # ssp=0, sfp=0
+w[data2m$sfp==1]=2 # ssp=0, sfp=1
+w[data2m$ssp==1]=3 # ssp=1, sfp=0
+w[data2m$sfsp==1]=4 # ssp=1, sfp=1
+
+# Display of data
+boxplot(y2m ~ w, xlab="Treatment combination", ylab=expression(Y[2]))
+```
+
+```{r, results='markup'}
+# ANOVA using lm()
+n1=sum(w==1)
+n2=sum(w==2)
+n3=sum(w==3)
+n4=sum(w==4)
+anova(lm(y2m ~ factor(w)))
+```
+
+|                | Df    | Sum Sq  | Mean Sq | F value |
+|:--------------:|:-----:|:-------:|:-------:|:-------:|
+| **Treatments** |  3    | 4.87    | 1.62325 | 1.7876  |
+| **Residuals**  | 585   | 531.22  | 0.90807 |         |
+|   **Total**    | 588   | 536.09  | 2.53132 |         |
+```{r}
+Stardatay2mCh6 = data.frame("w"=w,"y2m"=y2m)
+N_j = Stardatay2mCh6 %>% count(w) %>% .$n %>% as.integer()
+
+D = gen.factorial(2,2) ## ME contrast columns in reverse order
+D[, c(1:2)] = D[,c(2:1)] ## Reverse the order of the columns
+colnames(D) = c("F1","F2")
+L = model.matrix(~ F1 + F2 + F1*F2,D)
+ITER=10000
+Fobs=1.7876
+Farray=NULL
+
+set.seed(100)
+for (count in 1:ITER) {
+wnew = sample(c(rep(1,N_j[1]),rep(2,N_j[2]),
+              rep(3,N_j[3]),rep(4,N_j[4])))
+
+Fnew=anova(lm(y2m ~ factor(wnew)))$F[1]
+Farray = c(Farray, Fnew)
+}
+hist(Farray, main=NULL, freq=FALSE, xlab="F")
+abline(v=Fobs, lty=3, lwd=2)
+pvalF = sum(Farray >= Fobs)/ITER
+text(4,0.2,paste("p-value= ",round(pvalF,2)))
+```
+
+While the p-value is much lower than the one for both males and females, it is still fairly high. As a result, we conclude that none of the treatments are effective for males.
+
+```{r, results='markup'}
+set.seed(100)
+Fishertesttwosquare(y2m,w,0,0,0,10000)
+```
+
+Looking at the one-sided p-values, we see that factor SFP has a p-value of 0.0301 for the test with the alternative hypothesis $H_A:\bar\tau(F_2)>0$. Given this low p-value, we conclude that factor SFP has a positive effect on GPA for males.
+```{r, results='markup'}
+#Looking at estimated effects
+meanvec = c(mean(y2m[w==1]),mean(y2m[w==2]),mean(y2m[w==3]),mean(y2m[w==4]))
+varvec = c(var(y2m[w==1]),var(y2m[w==2]),var(y2m[w==3]),var(y2m[w==4]))
+MSRes = ((n1-1)*varvec[1]+(n2-1)*varvec[2]+(n3-1)*varvec[3]+(n4-1)*varvec[4])/(N-4)
+VNey=MSRes*(1/n1 + 1/n2 + 1/n3 + 1/n4)/4
+SE = sqrt(VNey)
+taubarhatadj = (t(L) %*% meanvec)/4
+taubarhat = 2*taubarhatadj[2:4] # adjust factorial effects by 2
+Tscaled=abs(taubarhat/SE)
+pval=2*(1-pnorm(abs(Tscaled)))
+
+cbind(taubarhat, rep(SE,3), Tscaled, pval)
+```
+
+```{r, results='markup'}
+#Confidence intervals
+F1int = c(taubarhat[1]-qnorm(p=.05/2, lower.tail=FALSE)*SE, taubarhat[1]+qnorm(p=.05/2, lower.tail=FALSE)*SE)
+F1int
+F2int = c(taubarhat[2]-qnorm(p=.05/2, lower.tail=FALSE)*SE, taubarhat[2]+qnorm(p=.05/2, lower.tail=FALSE)*SE)
+F2int
+F3int = c(taubarhat[3]-qnorm(p=.05/2, lower.tail=FALSE)*SE, taubarhat[3]+qnorm(p=.05/2, lower.tail=FALSE)*SE)
+F3int
+```
