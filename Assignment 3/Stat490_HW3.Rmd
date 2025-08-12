@@ -1,0 +1,280 @@
+---
+title: "Stat 490 HW3"
+author: "Janine Yanes"
+output: html_document
+---
+<style>
+.indented {padding-left: 20px;}
+</style>
+
+```{r, warning=FALSE, message=FALSE}
+#Load packages
+library(knitr)
+library(kableExtra)
+library(tidyverse)
+```
+
+## Problem 1
+```{r, results='asis'}
+problem_1 = data.frame(
+  Block.Age = c(rep(1,6), rep(2,6)),
+  Unit = c(1:12),
+  Y0 = c(NA, 99, NA, 97, 102, NA, NA, NA, 100, 99, 97, NA),
+  Y1 = c(97, NA, 97, NA, NA, 99, 97, 98, NA, NA, NA, 101),
+  W = c(1,0,1,0,0,1,1,1,0,0,0,1),
+  y = c(97,99,97,97,102,99,97,98,100,99,97,101)
+)
+
+problem_1 %>%
+    kable("html", align = 'clc', caption = 'Problem 1 table') %>%
+      column_spec(1:2, bold = T, border_right = T) %>%
+      column_spec(4:5, border_right = T) %>%
+      row_spec(0, extra_css = "border-bottom: 1px solid;") %>% 
+      row_spec(6, extra_css = "border-bottom: 1px solid;") %>% 
+      kable_styling(full_width = T)
+```
+### a)
+```{r, results='asis'}
+set.seed(123)
+p1_b1 = subset(problem_1, Block.Age == 1)
+
+#Using code from class
+Nbytwo <- function(y,w) {
+  N = length(y)
+  Ypot = matrix(numeric(N*2), ncol=2)
+  for (i in 1:N) {
+    if (w[i]==1) {
+      Ypot[i,1] = NA
+      Ypot[i,2] = y[i]
+    } 
+    else {
+      Ypot[i,1] = y[i]
+      Ypot[i,2] = NA
+    }
+  }
+  return(Ypot)        
+}
+
+TUNEQUALCOMPUTE = function(y,w, taustar=0) {
+  # Computes t statistic with unequal variances
+  N = length(y)
+  N1 = sum(w)
+  N0 = N - N1
+  tauhat = mean(y[w==1]) - mean(y[w==0])
+  s0sq = var(y[w==0])
+  s1sq = var(y[w==1])
+  Tobs = (tauhat - taustar) / sqrt(s0sq/N0+s1sq/N1)
+  return(Tobs)
+}
+
+TEQUALCOMPUTE = function(y,w, taustar=0) {
+  # Computes t statistic with equal (pooled) variances
+  N = length(y)
+  N1 = sum(w)
+  N0 = N - N1
+  tauhat = mean(y[w==1]) - mean(y[w==0])
+  s0sq = var(y[w==0])
+  s1sq = var(y[w==1])
+  ssq_pooled = ((N0-1)*s0sq + (N1-1)*s1sq)/(N0 + N1 -2)
+  Tobs = (tauhat - taustar) / sqrt(ssq_pooled*(1/N0+1/N1))
+  return(Tobs)
+}
+
+imputeundersharpnull = function(Y,taustar=0){
+  N = dim(Y)[1]
+  for (i in 1:N) {
+    if (is.na(Y[i,1])) Y[i,1] = Y[i,2]-taustar
+    else Y[i,2] = Y[i,1]+taustar           
+  }
+  return(Y)
+}
+
+FISHER_TEST = function(y,w, taustar, ITER, tunequal=TRUE, show_hist=TRUE) {
+  # Tests sharp null H0:tau_i=taustar against tau_i>taustar
+  N = length(y) # Number of units
+  Ypot = Nbytwo(y,w)
+  if (tunequal==TRUE) Tobs = TUNEQUALCOMPUTE(y,w, taustar) # Calculate observed value of statistic
+  else Tobs = TUNEQUALCOMPUTE(y,w, taustar)
+  Yimp = imputeundersharpnull(Ypot, taustar) # Create imputed matrix of potential outcomes
+  Tarray = NULL
+  for (i in 1:ITER) {
+    wnew = sample(w) # this command randomly permutes the sequence x
+    ynew = numeric(N)
+    for (i in 1:N) ynew[i]=Yimp[i,wnew[i]+1]
+    if (tunequal==TRUE) Tnew = TUNEQUALCOMPUTE(ynew,wnew, taustar)
+    else Tnew = TEQUALCOMPUTE(ynew,wnew, taustar)
+    Tarray = c(Tarray, Tnew)
+  } 
+  if (show_hist==TRUE) {
+    hist(Tarray, main=NULL, xlab=NULL)
+    abline(v=Tobs, lty=2, lwd=3.0)
+  }
+  # Calculate p-value for two-sided alternative
+  pval_twosided = sum(abs(Tarray) >= abs(Tobs))/ITER
+  return(cat("p =", pval_twosided))
+}
+
+FISHER_TEST(p1_b1$y, p1_b1$W, 0, 10000)
+```
+
+Given our large p-value, we fail to reject the null hypothesis.  
+In other words, the test indicates that there is no differential treatment effect on any unit in Block 1.  
+
+### b)
+```{r, results='asis'}
+set.seed(123)
+print(var(problem_1$Y0, na.rm = TRUE))
+print(var(problem_1$Y1, na.rm = TRUE))
+
+FISHER_TEST(problem_1$y, problem_1$W, 0, 10000)
+```
+  
+Since the two treatment groups have significantly different variances (3.6 for treatment group 0 vs. 2.566667 for treatment group 1), we use the test statistic $T_{\text{avg-uneqvar}}$ in order to have a test statistic that takes variability into account. Since we are looking for any treatment effect (whether positive or negative), we use a two-sided alternative.   
+Given our large p-value, we fail to reject the null hypothesis.  
+In other words, the test indicates that there is essentially zero treatment effect for each of the twelve participants. 
+
+### c)
+```{r, results='asis'}
+set.seed(123)
+p1_b2 = subset(problem_1, Block.Age == 2)
+
+#using code from class
+Neymanian_inference = function(y,w, alpha){
+  N = length(y)
+  N1 = sum(w)
+  N0 = N - N1
+  tauhat = mean(y[w==1]) - mean(y[w==0])
+  s0sq = var(y[w==0])
+  s1sq = var(y[w==1])
+  
+  Tobs = TUNEQUALCOMPUTE(y,w)
+  pval_minus = pnorm(Tobs)
+  pval_plus = 1 - pval_minus
+  pval_twosided = 2*(1 - pnorm(Tobs))
+
+  LL <- Tobs - qnorm(1-alpha/2)*sqrt(s0sq/N0 + s1sq/N1)
+  UL <- Tobs + qnorm(1-alpha/2)*sqrt(s0sq/N0 + s1sq/N1)
+
+  return(list(Tobs=Tobs, 
+            pvalues=c(pval_plus,pval_minus,
+            pval_twosided),CI=c(LL,UL)))
+}
+
+#modifying code from class
+Neymanian_inference_blocks = function(yb1,yb2,wb1, wb2, alpha){
+  Nb1 = length(yb1)
+  Nb2 = length(yb2)
+  N1b1 = sum(wb1)
+  N0b1 = Nb1 - N1b1
+  N1b2 = sum(wb2)
+  N0b2 = Nb2 - N1b2
+  
+  tauhatb1 = mean(yb1[wb1==1]) - mean(yb1[wb1==0]) 
+  tauhatb2 = mean(yb2[wb2==1]) - mean(yb2[wb2==0])
+  taudiff = tauhatb1 - tauhatb2
+  
+  s0sqb1 = var(yb1[wb1==0])
+  s1sqb1 = var(yb1[wb1==1])
+  s0sqb2 = var(yb2[wb2==0])
+  s1sqb2 = var(yb2[wb2==1])
+  vardiff = s0sqb1/N0b1 + s1sqb1/N1b1 + s0sqb2/N0b2 + s0sqb2/N0b2
+  
+  Tobs = taudiff / sqrt(vardiff)
+  pval_minus = pnorm(Tobs)
+  pval_plus = 1 - pval_minus
+  pval_twosided = 2*(1 - pnorm(Tobs))
+
+  LL <- Tobs - qnorm(1-alpha/2)*sqrt(vardiff)
+  UL <- Tobs + qnorm(1-alpha/2)*sqrt(vardiff)
+
+  return(list(Tobs=Tobs, 
+            pvalues=c(pval_plus,pval_minus,
+            pval_twosided),CI=c(LL,UL)))
+}
+
+b2_ci = Neymanian_inference(p1_b2$y, p1_b2$W, 0.05)$CI
+cat("The 95% confidence interval for the average treatment effect within Block 2 is (", b2_ci[1],", ",b2_ci[2], ").", sep='' )
+bdiff_ci = Neymanian_inference_blocks(p1_b1$y, p1_b2$y, p1_b1$W,  p1_b2$W, 0.05)$CI
+cat("The 95% confidence interval for the difference of the average treatment effects within Block 1 and Block 2 is (", bdiff_ci[1],", ",bdiff_ci[2], ").", sep='' )
+```
+
+
+## Problem 2
+```{r, results='asis'}
+problem_2 = data.frame(
+  Group = c(1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10),
+  Diet = rep(c("A","B"),5),
+  y = c(13.2,14.0,8.2,8.8,10.9,11.2,14.3,14.2,10.7,11.8,6.6,6.4,9.5,9.8,10.8,11.3,8.8,9.3,13.3,13.6)
+)
+
+problem_2 %>%
+    kable("html", align = 'clc', caption = 'Problem 2 table') %>%
+      column_spec(1, bold = T, border_right = T) %>%
+      column_spec(2, border_right = T) %>%
+      row_spec(0, extra_css = "border-bottom: 1px solid;") %>% 
+      row_spec(c(2,4,6,8,10,12,14,16,18), extra_css = "border-bottom: 1px solid;") %>% 
+      kable_styling(full_width = T)
+```
+
+### i)
+Given that the animals differ with respect to age, sex and so on, a completely randomized experiment could lead to all the animals with the same age/sex/etc. being in one treatment group. As a result, that characteristic would become a confounding variable; we would be unsure if any perceived effect (or lack of effect) would be due to the treatment or was influenced by the group's common characteristic.
+
+### ii)
+There are $10(_2C_1) = 20$ possible randomizations in this experiment.
+
+### iii)
+One possible randomization is {A, A, B, B}, {A, A, B, B}, {A, A, B, B}, {A, A, B, B}, {A, A, B, B}. This would not be possible with a matched-pair design since both units in a pair cannot have the same assigned treatment. 
+
+### iv)
+```{r, results='asis'}
+problem_2_p4 = data.frame(
+  Group = c(1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10),
+  Diet = rep(c("A","B"),5),
+  Y0 = c(NA,14.0,NA,8.8,NA,11.2,NA,14.2,NA,11.8,NA,6.4,NA,9.8,NA,11.3,NA,9.3,NA,13.6),
+  Y1 = c(13.2,NA,8.2,NA,10.9,NA,14.3,NA,10.7,NA,6.6,NA,9.5,NA,10.8,NA,8.8,NA,13.3,NA),
+  W = rep(c(1,0),5),
+  y = c(13.2,14.0,8.2,8.8,10.9,11.2,14.3,14.2,10.7,11.8,6.6,6.4,9.5,9.8,10.8,11.3,8.8,9.3,13.3,13.6)
+)
+
+problem_2_p4 %>%
+    kable("html", align = 'clc', caption = 'Problem 2 table, with observed and missing potential outcomes and observed assignment vector') %>%
+      column_spec(1, bold = T, border_right = T) %>%
+      column_spec(c(2,4,5), border_right = T) %>%
+      row_spec(0, extra_css = "border-bottom: 1px solid;") %>% 
+      row_spec(c(2,4,6,8,10,12,14,16,18), extra_css = "border-bottom: 1px solid;") %>% 
+      kable_styling(full_width = T)
+```
+
+### v)
+```{r, results='asis'}
+set.seed(123)
+print(var(problem_2_p4$Y0, na.rm = TRUE))
+print(var(problem_2_p4$Y1, na.rm = TRUE))
+#See Problem 1, part a) for function
+#parameter tunequal is set to FALSE, so T_{avg-eqvar} is used
+FISHER_TEST(problem_2_p4$y, problem_2_p4$W, 0, 10000, FALSE)
+```
+  
+Since the two treatment groups have similar variances (6.342667 for treatment group 0 vs. 6.009 for treatment group 1), we use the test statistic $T_{\text{avg-eqvar}}$ in order to have a test statistic that takes variability into account. Since we are looking for any treatment effect (whether positive or negative), we use a two-sided alternative.   
+Given our large p-value, we fail to reject the null hypothesis.  
+In other words, the test indicates that there is essentially zero treatment effect for each of the twenty participants. 
+
+### vi)
+```{r, results='asis'}
+#See Problem 1, part c) for function
+problem_2_ci = Neymanian_inference(problem_2_p4$y, problem_2_p4$W, 0.05)$CI
+cat("The 95% confidence interval for the average causal effect is (", problem_2_ci[1],", ",problem_2_ci[2], ").", sep='' )
+```
+
+
+## Problem 3
+
+### a) 
+\[\hat{\bar\tau}_b = \bar y_b(1) - \bar y_b(0) \to E[\hat{\bar\tau}_b] = E[\bar y_b(1) - \bar y_b(0)] = E[\bar y_b(1)] - E[\bar y_b(0)] = \bar Y_b(1) - \bar Y_b(0) = \bar\tau_b\]
+Therefore, $\hat{\bar\tau}_b$ is an unbiased estimator of $\bar\tau_b$.
+
+### b)
+An unbiased estimator for $\bar\tau$ would be $\frac{1}{B}\sum_{b=1}^B\hat{\bar\tau}_b$.  
+Let $M_b$ be the block size for block $b$ (in this case, $M_b$ = 2 for every block and $N=2b$):
+\[E[\frac{1}{B}\sum_{b=1}^B\hat{\bar\tau}_b] = \frac{1}{B}(E[\hat{\bar\tau}_1] + E[\hat{\bar\tau}_2] + \dots + E[\hat{\bar\tau}_B]) = \frac{1}{B}\sum_{b=1}^B\bar\tau_b = \frac{1}{2B}\sum_{b=1}^B2\bar\tau_b = \frac{1}{N}\sum_{b=1}^BM_b\bar\tau_b = \bar\tau\]
+$E[\frac{1}{B}\sum_{b=1}^B\hat{\bar\tau}_b] = \bar\tau$ as defined in (3.3) (in Section 3.2.1 of the textbook), so $\frac{1}{B}\sum_{b=1}^B\hat{\bar\tau}_b$ is an unbiased estimator of $\bar\tau$.
