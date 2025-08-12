@@ -1,0 +1,361 @@
+---
+title: "Stat490_HW4"
+author: "Janine Yanes"
+output: html_document
+---
+
+```{=html}
+<style>
+.indented {padding-left: 20px;}
+</style>
+```
+
+```{r, warning=FALSE, message=FALSE}
+knitr::opts_chunk$set(results = 'asis')
+#Load packages
+library(knitr)
+library(kableExtra)
+library(tidyverse)
+library(combinat)
+```
+
+## Problem 1
+
+### (i)
+
+```{r, results='markup'}
+PTSDdat = matrix(scan("ptsd.txt"), ncol=2, byrow=T)
+y = PTSDdat[,2]
+w = PTSDdat[,1]
+
+anova(lm(y ~ factor(w)))
+```
+
+|                | Df  | Sum Sq  | Mean Sq | F value |
+|:--------------:|:---:|:-------:|:-------:|:-------:|
+| **Treatments** |  3  | 507.84  | 169.28  |  3.046  |
+| **Residuals**  | 41  | 2278.74 |  55.58  |         |
+|   **Total**    | 44  | 2786.58 | 224.86  |         |
+
+```{r}
+Fobs = anova(lm(y ~ factor(w)))[[4]][[1]]
+cat("The observed F-statistic is ", Fobs, ".", sep="")
+```
+
+### (ii)
+
+```{r, error=TRUE}
+set.seed(123)
+Farray = NULL
+w = c(rep(1,14),rep(2,10),rep(3,11),rep(4,10))
+exactw = unique(permn(w)) #too many permutations to calculate all of them
+
+for (i in 1:10000){
+  wnew = sample(c(rep(1,14),rep(2,10),rep(3,11),rep(4,10)))
+  Fnew = anova(lm(y ~ factor(wnew)))[[4]][[1]]
+  Farray = c(Farray, Fnew)  
+}  
+
+hist(Farray)
+abline(v=Fobs, lty=2, lwd=1.5)
+
+pval = sum(Farray > Fobs)/10000
+pval
+```
+
+### (iii)
+
+```{r}
+plot(density(rf(10000,3,41)))
+approx_pval = 1 - pf(Fobs,3,41)
+approx_pval
+```
+
+### (iv)
+Testing the hypotheses:  
+$H_0:\tau_i(1,2) = 0$ for $i = 1, 2, \dots, 45$  
+$H_0:\tau_i(1,3) = 0$ for $i = 1, 2, \dots, 45$  
+$H_0:\tau_i(1,4) = 0$ for $i = 1, 2, \dots, 45$  
+$H_0:\tau_i(2,3) = 0$ for $i = 1, 2, \dots, 45$  
+$H_0:\tau_i(2,4) = 0$ for $i = 1, 2, \dots, 45$  
+$H_0:\tau_i(3,4) = 0$ for $i = 1, 2, \dots, 45$  
+6 pairs, so the ensemble-adjusted p-value is $p^*/\binom{J}{2} = 0.05/6 = 0.0083$  
+```{r}
+PTSD_df = data.frame(treatment = PTSDdat[,1], PTSDscore = PTSDdat[,2])
+y_1_2 = subset(PTSD_df, treatment == 1 | treatment == 2)$PTSDscore
+y_1_3 = subset(PTSD_df, treatment == 1 | treatment == 3)$PTSDscore
+y_1_4 = subset(PTSD_df, treatment == 1 | treatment == 4)$PTSDscore
+y_2_3 = subset(PTSD_df, treatment == 2 | treatment == 3)$PTSDscore
+y_2_4 = subset(PTSD_df, treatment == 2 | treatment == 4)$PTSDscore
+y_3_4 = subset(PTSD_df, treatment == 3 | treatment == 4)$PTSDscore
+w_1_2 = subset(PTSD_df, treatment == 1 | treatment == 2)$treatment
+w_1_3 = subset(PTSD_df, treatment == 1 | treatment == 3)$treatment
+w_1_4 = subset(PTSD_df, treatment == 1 | treatment == 4)$treatment
+w_2_3 = subset(PTSD_df, treatment == 2 | treatment == 3)$treatment
+w_2_4 = subset(PTSD_df, treatment == 2 | treatment == 4)$treatment
+w_3_4 = subset(PTSD_df, treatment == 3 | treatment == 4)$treatment
+
+# (a) Neymanian
+#Given the contrast bar_tau_star = Y-bar(j) - Y_bar(j2)
+Neymanian_inference = function(y, w, j, j2, alpha){
+  y_j = y[w == j]
+  y_j2 = y[w == j2]
+  Nj = length(y_j)
+  Nj2 = length(y_j2)
+  sjsq = (1/(Nj-1)) * sum((y_j - mean(y_j))^2)
+  sj2sq = (1/(Nj2-1)) * sum((y_j2 - mean(y_j2))^2)
+  taustar_bar_hat = mean(y_j) - mean(y_j2)
+  var_unpooled_hat = sjsq/Nj + sj2sq/Nj2
+  z = qnorm(1 - alpha/2)
+  return(c(taustar_bar_hat - z*sqrt(var_unpooled_hat), taustar_bar_hat + z*sqrt(var_unpooled_hat)))
+}
+
+Neymanian_inference(y_1_2,w_1_2, 1, 2, 0.05)
+Neymanian_inference(y_1_3,w_1_3, 1, 3, 0.05)
+Neymanian_inference(y_1_4,w_1_4, 1, 4, 0.05)
+Neymanian_inference(y_2_3,w_2_3, 2, 3, 0.05)
+Neymanian_inference(y_2_4,w_2_4, 2, 4, 0.05)
+Neymanian_inference(y_3_4,w_3_4, 3, 4, 0.05)
+```
+
+According to the Neymanian method, treatment pairs (1,3) and (1,4) have a significant difference at the 0.05 level (using the ensemble-adjusted p-value), since the 95% confidence intervals for their respective contrasts do not include 0.
+
+```{r}
+# (b) Randomization approach
+set.seed(123)
+Fobs = anova(lm(y_1_2 ~ factor(w_1_2)))[[4]][[1]]
+Farray = NULL
+for (i in 1:5000){
+  wnew_1_2 = sample(c(rep(1,14),rep(2,10)))
+  Fnew = anova(lm(y_1_2 ~ factor(wnew_1_2)))[[4]][[1]]
+  Farray = c(Farray, Fnew)  
+}  
+#hist(Farray)
+#abline(v=Fobs, lty=2, lwd=1.5)
+pval_1_2 = sum(Farray > Fobs)/5000
+pval_1_2
+
+Fobs = anova(lm(y_1_3 ~ factor(w_1_3)))[[4]][[1]]
+Farray = NULL
+for (i in 1:5000){
+  wnew_1_3 = sample(c(rep(1,14),rep(3,11)))
+  Fnew = anova(lm(y_1_3 ~ factor(wnew_1_3)))[[4]][[1]]
+  Farray = c(Farray, Fnew)  
+}  
+#hist(Farray)
+#abline(v=Fobs, lty=2, lwd=1.5)
+pval_1_3 = sum(Farray > Fobs)/5000
+pval_1_3
+
+Fobs = anova(lm(y_1_4 ~ factor(w_1_4)))[[4]][[1]]
+Farray = NULL
+for (i in 1:5000){
+  wnew_1_4 = sample(c(rep(1,14),rep(4,10)))
+  Fnew = anova(lm(y_1_4 ~ factor(wnew_1_4)))[[4]][[1]]
+  Farray = c(Farray, Fnew)  
+}  
+#hist(Farray)
+#abline(v=Fobs, lty=2, lwd=1.5)
+pval_1_4 = sum(Farray > Fobs)/5000
+pval_1_4
+
+Fobs = anova(lm(y_2_3 ~ factor(w_2_3)))[[4]][[1]]
+Farray = NULL
+for (i in 1:5000){
+  wnew_2_3 = sample(c(rep(2,10), rep(3,11)))
+  Fnew = anova(lm(y_2_3 ~ factor(wnew_2_3)))[[4]][[1]]
+  Farray = c(Farray, Fnew)  
+}  
+#hist(Farray)
+#abline(v=Fobs, lty=2, lwd=1.5)
+pval_2_3 = sum(Farray > Fobs)/5000
+pval_2_3
+
+Fobs = anova(lm(y_2_4 ~ factor(w_2_4)))[[4]][[1]]
+Farray = NULL
+for (i in 1:5000){
+  wnew_2_4 = sample(c(rep(2,10), rep(4,10)))
+  Fnew = anova(lm(y_2_4 ~ factor(wnew_2_4)))[[4]][[1]]
+  Farray = c(Farray, Fnew)  
+}  
+#hist(Farray)
+#abline(v=Fobs, lty=2, lwd=1.5)
+pval_2_4 = sum(Farray > Fobs)/5000
+pval_2_4
+
+Fobs = anova(lm(y_3_4 ~ factor(w_3_4)))[[4]][[1]]
+Farray = NULL
+for (i in 1:5000){
+  wnew_3_4 = sample(c(rep(3,11), rep(4,10)))
+  Fnew = anova(lm(y_3_4 ~ factor(wnew_3_4)))[[4]][[1]]
+  Farray = c(Farray, Fnew)  
+}  
+#hist(Farray)
+#abline(v=Fobs, lty=2, lwd=1.5)
+pval_3_4 = sum(Farray > Fobs)/5000
+pval_3_4
+```
+
+According to the randomization approach, treatment pairs (1,3) and (1,4) have a significant difference at the 0.05 level (using the ensemble-adjusted p-value).
+
+## Problem 2
+
+### (i)
+
+One possible problem is that it could be hard to determine the exact moment that a person falls asleep (or wakes up, for that matter): would it be based on when they close their eyes, brainwaves, etc.? As a result, it would be hard to precisely measure how long a person sleeps. Furthermore, considering the times that the algebraic computations have to be performed (at night/early morning), it's highly likely that the participants' sleep would have to be interrupted. In other words, even if all the participants end up sleeping their assigned total amount that day, their amount of sleep when performing the computations may differ.
+
+### (ii)
+
+4 different treatment groups, so (J - 1) = (4 - 1) = 3\
+24 participants, so (N - J) = (24 - 4) = 20 and (N - 1) = (24 - 1) = 23\
+MSRes = SSRes/(N - J) = 469.61/20 = 23.4805\
+F = MSTre/MSRes, so MSTre = MSRes(F) = 23.4805(9.101) = 213.696031\
+MSTre = SSTre/(J - 1), so SSTre = MSTre(J - 1) = 213.696031(3) = 641.088093\
+641.088093 + 469.61 = 1110.698093\
+213.696031 + 23.4805 = 237.176531
+
+|                    | Df  | Sum Sq  | Mean Sq | F value |
+|:------------------:|:---:|:-------:|:-------:|:-------:|
+| **Hours of sleep** |  3  | 641.09  | 213.70  |  9.101  |
+|   **Residuals**    | 20  | 469.61  |  23.48  |         |
+|     **Total**      | 23  | 1110.70 | 237.18  |         |
+
+### (iii)
+
+```{r}
+approx_pval_prob2 = 1 - pf(9.101,3,20)
+approx_pval_prob2
+```
+
+### (iv)  
+Yes; looking at the averages, there seems to be a significant difference between certain treatments, especially between 6 hours and 8 hours. This is in line with the approximate p-value derived from the ANOVA table's F-value. Furthermore, SSTre = $\sum_{j=1}^JN_j[\bar y.(j) - \bar y.(\cdot)]^2 = 469.61$. Based on the observed averages, the overall observed average $\bar y.(\cdot) = 36.4125$, so splitting the 24 units such that $N_6 =1, N_7 = 8, N_8 = 6, N_9 = 9$ would make it so that SSTre = $1(43.18 - 36.4125)^2 + 8(39.47 - 36.4125)^2 + 6(30.19 - 36.4125)^2 + 9(32.81 - 36.4125)^2 \approx 469.7046$, which is in line with the observed SSTre value.
+
+
+## Problem 3
+
+|    Block    |  Unit   |  Tr. 1   |  Tr. 2  |  Tr. 3  |  Mean  |
+|:-----------:|:-------:|:--------:|:-------:|:-------:|:------:|
+|             |    1    |    5     |    9    |    7    |   7    |
+| **Block 1** |    2    |    6     |   10    |    8    |   8    |
+|             |    3    |    7     |   11    |    9    |   9    |
+|             | *Mean*  |    6     |   10    |    8    |   8    |
+|---|---|---|---|---|---|
+|             |    4    |    7     |   11    |    9    |   9    |
+| **Block 2** |    5    |    8     |   12    |   10    |   10   |
+|             |    6    |    9     |   13    |   11    |   11   |
+|             | *Mean*  |    8     |   12    |   10    |   10   |
+|---|---|---|---|---|---|
+|             |    7    |    3     |    7    |    5    |   5    |
+| **Block 3** |    8    |    4     |    8    |    6    |   6    |
+|             |    9    |    5     |    9    |    7    |   7    |
+|             | *Mean*  |    4     |    8    |    6    |   6    |
+|---|---|---|---|---|---|
+|  **Mean**   |         |    6     |   10    |    8    |   8    |
+
+### (i)  
+Block 1: $\bar\tau(1,2) = 6 - 10 = -4, \;\bar\tau(1,3) = 6 - 8 = -2, \; \bar\tau(2,3) = 10 - 8 = 2$  
+Block 2: $\bar\tau(1,2) = 8 - 12 = -4, \;\bar\tau(1,3) = 8 - 10 = -2, \;\bar\tau(2,3) = 12 - 10 = 2$  
+Block 3: $\bar\tau(1,2) = 4 - 8 = -4, \;\bar\tau(1,3) = 4 - 6 = -2, \;\bar\tau(2,3) = 8 - 6 = 2$  
+For all units: $\bar\tau(1,2) = 6 - 10 = -4, \;\bar\tau(6 - 8) = -2, \;\bar\tau(2,3) = 10 - 8 = 2$  
+
+### (ii)
+Block 1: $\bar\tau(1) = 6 - 8 = -2, \;\bar\tau(2) = 10 - 8 = 2, \;\bar\tau(3) = 8 - 8 = 0$  
+Block 2: $\bar\tau(1) = 8 - 10 = -2, \;\bar\tau(2) = 12 - 10 = 2, \;\bar\tau(3) = 10 - 10 = 0$  
+Block 3: $\bar\tau(1) = 4 - 6 = -2, \;\bar\tau(2) = 8 - 6 = 2, \;\bar\tau(3) = 6 - 6 = 0$  
+For all units: $\bar\tau(1) = 6 - 8 = -2, \;\bar\tau(2) = 10 - 8 = 2, \;\bar\tau(3) = 8 - 8 = 0$  
+
+### (iii)
+No; the treatment effects within each block are equal to the average unit-level treatment effect, so the interaction effect $\bar\gamma_b$ for each block *b* is 0.
+
+### (iv)
+
+|    Block    |  Unit   |  Tr. 1   |  Tr. 2  |  Tr. 3  |
+|:-----------:|:-------:|:--------:|:-------:|:-------:|
+|             |    1    |    5     |    ?    |    ?    |
+| **Block 1** |    2    |    ?     |    ?    |    8    |
+|             |    3    |    ?     |   11    |    ?    |
+|---|---|---|---|---|
+|             |    4    |    ?     |   11    |    ?    |
+| **Block 2** |    5    |    8     |    ?    |    ?    |
+|             |    6    |    ?     |    ?    |   11    |
+|---|---|---|---|---|
+|             |    7    |    ?     |    7    |    ?    |
+| **Block 3** |    8    |    ?     |    ?    |    6    |
+|             |    9    |    5     |    ?    |    ?    |
+
+### (v)  
+$\hat{\bar\tau}(j) = \bar y.(j) - \bar y(\cdot) = \frac{1}{N_j}\sum_{i:W_i=j}y_i - \frac{1}{N}\sum_{i=1}^Ny_i$  
+Block 1: $\hat{\bar\tau}(1) = 5 - 8 = -3, \;\hat{\bar\tau}(2) = 11 - 8 = 3, \;\hat{\bar\tau}(3) = 8 - 8 = 0$  
+Block 2: $\hat{\bar\tau}(1) = 8 - 10 = -2, \;\hat{\bar\tau}(2) = 11 - 10 = 1, \;\hat{\bar\tau}(3) = 11 - 10 = 1$  
+Block 3: $\hat{\bar\tau}(1) = 5 - 6 = -1, \;\hat{\bar\tau}(2) = 7 - 6 = 1, \;\hat{\bar\tau}(3) = 6 - 6 = 0$  
+For all units: $\hat{\bar\tau}(1) = 6 - 8 = -2, \;\hat{\bar\tau}(2) = 9.6\bar6 - 8 = 1.6\bar6, \;\hat{\bar\tau}(3) = 8.3\bar3 - 8 = 0.3\bar3$  
+
+### (vi)
+```{r, results='markup'}
+y_prob3 = c(5, 8, 11, 11, 8, 11, 7, 6, 5)
+w_prob3 = c(1, 3, 2, 2, 1, 3, 2, 3, 1)
+
+anova(lm(y_prob3 ~ factor(w_prob3)))
+```
+
+|                | Df  | Sum Sq  | Mean Sq | F value |
+|:--------------:|:---:|:-------:|:-------:|:-------:|
+| **Treatments** |  2  | 20.67   |  10.33  | 2.114   |
+| **Residuals**  |  6  | 29.33   |   4.89  |         |
+|   **Total**    |  8  | 50.00   |   15.22 |         |
+
+We are making the assumption that the variance of each block is approximately equal, which is not true in this case.
+
+### (vii)
+```{r}
+Fobs_prob3 = anova(lm(y_prob3 ~ factor(w_prob3)))[[4]][[1]]
+approx_pval_prob3 = 1 - pf(Fobs_prob3, 2, 6)
+approx_pval_prob3
+```
+
+
+## Problem 4
+
+### (a)  
+(0,0,0,0,1,1,1,1), (1,1,1,1,0,0,0,0), (0,0,1,1,0,0,1,1), (1,1,0,0,1,1,0,0), (0,1,0,1,0,1,0,1), and (1,0,1,0,1,0,1,0) all divide the units according to the value of a certain covariate (such that it equals 0 for all units assigned to one treatment and equals 1 for all units assigned to the other), making that covariate a confounding variable. We would have no idea if any difference between treatments would be due to the treatments themselves or the difference in the covariate's values.  
+
+### (b)  
+There are 2 units for each possible $x_1$ and $x_2$ value pair: units (1,2), (3,4), (5,6), and (7,8). Considering this, a matched-pair design could be used: if one unit is assigned to treatment 1, then the unit with the same $x_1$ and $x_2$ values would be assigned to treatment 2. This would have $_2C_1 * _2C_1 * _2C_1 * _2C_1 = 2^4 = 16$ possible randomizations, with the assignment vector (1,1,1,1,0,0,0,0) being impossible under this design.  
+
+### (c)
+One of the worst assignment vectors would be (0,1,0,1,0,1,0,1) since it would make $x_3$ a confounding variable (as explained in (a)), which is impossible for the other covariates under the matched-pair design. While $x_3$ is not as important as $x_1$ and $x_2$, it could still affect the experiment/outcomes.  
+
+### (d)  
+```{r, results='markup'}
+X = matrix(c(0,0,0,0,1,1,1,1,0,0,1,1,0,0,1,1,0,1,0,1,0,1,0,1), nrow = 8, ncol = 3, dimnames = list(NULL, c("x1","x2","x3")))
+X
+
+#function from March 25 lecture
+MD = function(X,W) {
+  N1 = sum(W)
+  N0 = sum(1-W)
+  N = N1 + N0
+  sigmainv = solve(cov(X))
+  Xt = X[W==1,]
+  Xc = X[W==0,]
+  Xtbar = as.vector(apply(Xt,2,mean))
+  Xcbar = as.vector(apply(Xc,2,mean))
+  MD = (N0*N1)/N * t(Xtbar - Xcbar) %*% sigmainv %*% (Xtbar - Xcbar)
+  return(MD)
+}
+
+# (i)
+w_i = c(1,1,1,1,0,0,0,0)
+MD(X, w_i)
+
+# (ii)
+w_ii = c(0,1,0,1,0,1,0,1)
+MD(X, w_ii)
+
+# (iii)
+w_iii = c(0,1,1,0,0,0,1,1)
+MD(X, w_iii)
+```
+
+Under the acceptance criterion, only the assigment (iii) would be accepted.
+
